@@ -104,8 +104,6 @@ if (turf.bbox == undefined) {
     // compute the extent
     var extentLng = d3.extent(linearRing[0], function(d) { /*console.log("lng", d);*/ return d[1]; });
     var extentLat = d3.extent(linearRing[0], function(d) { /*console.log("lat", d);*/ return d[0]; });
-    //console.log("extentLng", extentLng)
-    //console.log("extentLat", extentLat)
 
     // generate result
     var output = [
@@ -116,15 +114,9 @@ if (turf.bbox == undefined) {
   }
 }
 
-
 // load layers
-//var layerNames = ["test.geojson"];
 var layerNames = ["output.geojson"];
-//var layerNames = ["sf-parks-final-output-buffered.geojson"];
-//var layerNames = ["sf-parks-clean1.geojson"];
-//var layerNames = ["sf-parks-clean.geojson", "realtor-neighborhoods1.geojson"];
 var layers = [];
-
 
 var queue = d3.queue();
 layerNames.forEach(function(name) { queue.defer(d3.json, name) })
@@ -132,7 +124,6 @@ layerNames.forEach(function(name) { queue.defer(d3.json, name) })
 queue.awaitAll(function(error, data) {
   if (error) throw error;
   layers = data;
-  //arrLength(layers[0])
 
   init();
 });
@@ -146,16 +137,11 @@ function init() {
   layers[0] = turf.featurecollection(layers[0])
   console.log("main layer: ", layers[0])
 
-
-
   mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
-  //var center = [-122.4194200, 37.7749300];
   var center = [-122.45, 37.75];
 
   var map = new mapboxgl.Map({
       container: 'map',
-      //style: 'mapbox://styles/mapbox/streets-v8',
-      //style: 'mapbox://styles/mapbox/streets-v9',
       style: 'mapbox://styles/boeric/cipbfpxon001kbbnp2hd32fe4',
       center: center,
       zoom: 12
@@ -171,16 +157,6 @@ function init() {
       }
     };
     console.log("[" + e.lngLat.lng + ", " + e.lngLat.lat + "],")
-    /*
-    features.features.forEach(function(feature) {
-    //buffered.features.forEach(function(feature) {
-       var isInside = turf.inside(p, feature);
-      if(isInside) {
-        console.log(feature);
-        d3.select(".caption").text(feature.properties.name)
-      }
-    })
-    */
   })
   map.getCanvas().style.cursor = 'crosshair'
 
@@ -201,37 +177,25 @@ function init() {
         }
       });
 
-
-
-  //layers[0] = buffer(layers[0], 0, 'meters');
   var buffered = buffer(layers[0], 200, 'meters');
   console.log("buffered", buffered);
 
-  //var merged = fCPolygonUnion(buffered);
-
-
   var svg = d3.select(container).append("svg")
   var land = svg.append("path")
-    //.datum(unionFc)
     .datum(layers[0])
-    //.datum(buffered)
-    //.datum(merged)
     .attr("class", "land");
 
   function render() { land.attr("d", path); }
   render();
 
-
-  window.setStrokeWidth = function(w) {
+  var setStrokeWidth = function(w) {
     land.style("stroke-width", w + "px")
   }
 
-
-
   var lastRadius = 200;
-  window.setRadius = function(r) {
+  var setRadius = function(r) {
     console.log("setting radius ", r);
-    if (r == undefined) r = lastRadius;
+    r = r || lastRadius;
     lastRadius = r;
 
     var startTime = Date.now();
@@ -241,34 +205,27 @@ function init() {
     enableUI(true);
 
     var buffTime = Date.now();
-    //console.log(JSON.stringify(buffered))
-    //land.style("stroke", "none")
-    //land.style("stroke-width", "2px")
     land.datum(r === 0 ? layers[0] : buffered);
     var datumTime = Date.now();
     render();
     var renderTime = Date.now();
 
-    console.log("turf.buffer: ", buffTime - startTime)
+    //console.log("turf.buffer: ", buffTime - startTime)
     d3.select("#bufferTime").text("Buffer computation: " + (buffTime - startTime) + " ms");
     d3.select("#unionTime").text("Union computation: ");
-    console.log("d3.datum: ", datumTime - startTime)
-    console.log("d3.render: ", renderTime - startTime)
+    //console.log("d3.datum: ", datumTime - startTime)
+    //console.log("d3.render: ", renderTime - startTime)
 
     tsIntersectTotalElapsed = 0;
-
-
-
 
     if (doMerge) {
         enableUI(false);
 
-
-        console.log("doMerge-------------------------------------------------------------")
+        console.log("do merge...")
         d3.select("#unionTime").text("Union computation: (computing...)");
 
         setTimeout(function() {
-          console.log("--------------generating union...");
+          console.log("generating union...");
 
           mergeCount = 0;
           mergeElapsed = 0;
@@ -279,16 +236,14 @@ function init() {
           enableUI(true);
 
           var end = Date.now();
-          console.log("--------------generated union, elapsed time: ", end - start);
+          console.log("generated union, elapsed time: ", end - start);
           console.log("mergeCount", mergeCount)
-
 
           console.log("IntersectTotalElapsed", tsIntersectTotalElapsed);
           console.log("mergeElapsed", mergeElapsed)
           d3.select("#unionTime").text("Union computation: " + mergeElapsed + " ms");
 
           land.style("stroke", "black")
-          //land.style("stroke-width", "1px")
           land.datum(merged);
           render();
 
@@ -298,11 +253,9 @@ function init() {
     return true;
   }
 
-
   d3.select("#control").select("input[type=range]").on("change", function() {
     var elem = d3.select(this);
     var value = elem.property("value")
-    //console.log("value", value)
     d3.select("#distanceLabel").text("Distance From Park: " + value + " meters");
     setRadius(value);
   })
@@ -329,7 +282,6 @@ function init() {
     setRadius();
   })
 
-
   var uiElements = [
     d3.select("input[type=range]"),
     d3.select("#polygonStrokeCheckbox"),
@@ -337,35 +289,21 @@ function init() {
   ]
   uiElements.length = 1;
   function enableUI(bool) {
-    //if (bool) return;
-    //bool = true;
-    console.log("-------------", bool)
     uiElements.forEach(function(d) {
       console.log(d, bool)
       d.property("disabled", !bool);
     })
   }
 
-
-
   // re-render our visualization whenever the view changes
   map.on("viewreset", function() { render(); })
   map.on("move", function() { render(); })
-
 }
-
-
 
 
 function buffer(fC, r) {
 
   var polygons = toPolygonArray(fC);
-  //console.log("polygons input to buffer", polygons)
-  //console.log("buffer, polygons.length: ", polygons.length)
-  //console.log(JSON.stringify(polygons[0], null, 1));
-
-  //polygons.length = 2;
-
   var bufferedPolygons = [];
 
   polygons.forEach(function(polygon) {
@@ -374,19 +312,7 @@ function buffer(fC, r) {
       var bufferedPolygon = fCTemp.features[0];
       var linearRing = bufferedPolygon.geometry.coordinates;
       var id = Sha1.hash(JSON.stringify(linearRing));
-/*
-      var extentLng = d3.extent(linearRing[0], function(d) { return d[0]; });
-      var extentLat = d3.extent(linearRing[1], function(d) { return d[1]; });
-      var boundingBox = {
-        minX: extentLat[0],
-        maxX: extentLat[1],
-        minY: extentLng[0],
-        maxY: extentLng[1]
-      }
-      console.log("extents", extentLng, extentLat)
-*/
       var name = polygon.properties["map_park_n"];
-      //var polygon = turf.polygon(linearRing, { id: id, map_park_n: name, bBox: boundingBox });
       var polygon = turf.polygon(linearRing, { id: id, map_park_n: name });
       bufferedPolygons.push(polygon)
     } catch(e) {
@@ -394,13 +320,12 @@ function buffer(fC, r) {
     }
   })
 
-  console.log(bufferedPolygons.length)
   d3.select("#inputPolygons").text("Input polygons: " + bufferedPolygons.length)
   d3.select("#outputPolygons").text("Output polygons: " + bufferedPolygons.length)
 
   bufferedPolygons = turf.featurecollection(bufferedPolygons);
+  console.log("bufferedPolygons", bufferedPolygons);
 
-  console.log("bufferedPolygons", bufferedPolygons)
   return bufferedPolygons;
 }
 
@@ -410,7 +335,6 @@ function toPolygonArray(fC) {
   var arr = [];
 
   //fC.features.length = 10
-
   fC.features.forEach(function(feature) {
 
     switch (feature.geometry.type.toLowerCase()) {
@@ -453,47 +377,43 @@ function multiToArray(m) {
 }
 
 
-
-/*
-    Function to reduce the polygon count of a GeoJSON FeatureCollection,
-    by merging overlapping polygons, using turf.intersect and turf.union
-*/
+/**
+ *  Function to reduce the polygon count of a GeoJSON FeatureCollection,
+ *  by merging overlapping polygons, using turf.intersect and turf.union
+ */
 
 function fCPolygonUnion(fC) {
 
-
 /*
-    Algorithm:
+  Algorithm:
 
-    1. Flatten the fC to an array of polygons
-    2. Create master combined polygon map object
-    3. Loop through polygon array
-       - For each test polygon
-         - Loop through all current polygons in map
-         - Generate array of intersecting polygons
-         – If no intersecting polygons, add test polygon to map
-         - Process intersecting polygons recursively
-         – Create a copy intersecting array
-         - Create temporary polygon, initially set to test polygon
-         – Recursively process array copy, removing and processing one polygon at a time
-         - Perform union of temporary polygon and current polygon
-         - Replace temporary polygon with unioned polygon
-         - Repeat until array copy is empty
-         - Delete the intersecting polygons from map
-         - Add the temporary polygon to map
-    4. Convert polygon map to array
-      5. Create feature collection from array
+  1. Flatten the fC to an array of polygons
+  2. Create master combined polygon map object
+  3. Loop through polygon array
+     - For each test polygon
+       - Loop through all current polygons in map
+       - Generate array of intersecting polygons
+       – If no intersecting polygons, add test polygon to map
+       - Process intersecting polygons recursively
+       – Create a copy intersecting array
+       - Create temporary polygon, initially set to test polygon
+       – Recursively process array copy, removing and processing one polygon at a time
+       - Perform union of temporary polygon and current polygon
+       - Replace temporary polygon with unioned polygon
+       - Repeat until array copy is empty
+       - Delete the intersecting polygons from map
+       - Add the temporary polygon to map
+  4. Convert polygon map to array
+  5. Create feature collection from array
 */
 
   timerIntersect = 0;
   timerUnion = 0;
   var timerMerge = 0;
 
-
   // create array of polygons
   var polygons = toPolygonArray(fC);
   console.log("Input polygon count: ", polygons.length)
-
 
 /*
   // ensure that each has a unique id
@@ -521,7 +441,6 @@ function fCPolygonUnion(fC) {
     // is the map empty?
     if (mapItems.length > 0) {
       // map not empty
-
 
       var tsIntersectTotalStart = Date.now();
 
@@ -574,8 +493,6 @@ function fCPolygonUnion(fC) {
             intersects.push(mapPolygon);
           }
         }
-
-
       })
 
       var tsIntersectTotalEnd = Date.now();
@@ -601,7 +518,6 @@ function fCPolygonUnion(fC) {
 
   })
 
-
   // function to merge in
   function mergeMap(testPolygon, intersects) {
     //console.log("  Creating union polygon of ", intersects.length, " polygons (total polygons: ", Object.keys(polygonMap).length + ")");
@@ -614,13 +530,9 @@ function fCPolygonUnion(fC) {
     var polygons = intersects.slice();
 
     // merge the polygons recursively
-
     var mergeStart = Date.now();
     merge();
     mergeElapsed += Date.now() - mergeStart;
-
-
-
 
     // function to recursivly merge an array of polygons
     function merge() {
@@ -666,10 +578,7 @@ function fCPolygonUnion(fC) {
 
     // add entering polygon to map
     polygonMap[enteringPolygon.properties.id] = enteringPolygon;
-
   }
-
-
 
   // create output polygon array
   var finalPolygons = [];
@@ -685,10 +594,7 @@ function fCPolygonUnion(fC) {
   var fCFinal = turf.featurecollection(finalPolygons);
   return fCFinal;
 
-
 } // end fCPolygonUnion
-
-
 
 </script>
 
