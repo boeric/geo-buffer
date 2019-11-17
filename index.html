@@ -10,7 +10,7 @@
 <script src="//d3js.org/topojson.v1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/2.0.2/turf.min.js"></script>
 <script src="https://d3js.org/d3-queue.v3.min.js"></script>
-<script src="sha-1.js"></script>
+<script src="lib/sha-1.js"></script>
 
 <style>
 body {
@@ -78,6 +78,19 @@ label {
 <script>
 "use strict";
 
+async function getResource(resource, callback) {
+  try {
+    fetch(resource)
+      .then((response) => {
+      response.json().then(function(data) {
+        callback(data);
+      });
+    });
+  } catch (e) {
+    console.log(`Could not fetch resource ${resource}`);
+  }
+}
+
 var ROTL = Sha1.ROTL(1, 2);
 console.log("turf", turf);
 
@@ -114,20 +127,29 @@ if (turf.bbox == undefined) {
   }
 }
 
-// load layers
-var layerNames = ["output.geojson"];
 var layers = [];
+const USE_OLD = false;
 
-var queue = d3.queue();
-layerNames.forEach(function(name) { queue.defer(d3.json, name) })
+if (USE_OLD) {
+  // load layers
+  var layerNames = ["output.geojson"];
+  // var layers = [];
 
-queue.awaitAll(function(error, data) {
-  if (error) throw error;
-  layers = data;
+  var queue = d3.queue();
+  layerNames.forEach(function(name) { queue.defer(d3.json, name) })
 
-  init();
-});
-
+  queue.awaitAll(function(error, data) {
+    if (error) throw error;
+    layers = data;
+    init();
+  });
+} else {
+  const resource = 'geo-buffer.geojson';
+  getResource(resource, (data) => {
+    layers = [data];
+    init();
+  });
+}
 
 function init() {
   var doMerge = false;
