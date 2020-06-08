@@ -248,53 +248,52 @@ function buffer(fC, r) {
   return bufferedPolygons;
 }
 
-
-// flatten a feature collection consisting of polygons and multi polygons
-function toPolygonArray(fC) {
-  var arr = [];
-
-  //fC.features.length = 10
-  fC.features.forEach(function(feature) {
-
-    switch (feature.geometry.type.toLowerCase()) {
-      case 'polygon':
-        var linearRing = feature.geometry.coordinates;
-        var id = Sha1.hash(JSON.stringify(linearRing));
-        var name = feature.properties['map_park_n'];
-        var polygon = turf.polygon(linearRing, { id: id, map_park_n: name });
-        arr.push(polygon)
-        break;
-
-      case 'multipolygon':
-        var multiArray = multiToArray(feature);
-        arr = arr.concat(multiArray)
-        break;
-
-      default:
-        break;
-    }
-  })
-  return arr;
-}
-
-
-// take a multiPolygon feature and return an array of polygon features
+// Take a multiPolygon feature and return an array of polygon features
 function multiToArray(m) {
-  var polygons = [];
+  const polygons = [];
 
   if (m.geometry.type.toLowerCase() != 'multipolygon') {
-    throw ('TypeError', 'Expected MultiPolygon')
+    throw new Error('TypeError', 'Expected MultiPolygon');
   }
 
   // create polygons
-  m.geometry.coordinates.forEach(function(linearRing) {
-    var id = Sha1.hash(JSON.stringify(linearRing));
-    var polygon = turf.polygon(linearRing, { id: id });
+  m.geometry.coordinates.forEach((linearRing) => {
+    const id = Sha1.hash(JSON.stringify(linearRing));
+    const polygon = turf.polygon(linearRing, { id });
     polygons.push(polygon);
-  })
+  });
+
   return polygons;
 }
 
+// Flatten a feature collection consisting of polygons and multi polygons
+function toPolygonArray(fC) {
+  let arr = [];
+
+  fC.features.forEach((feature) => {
+    const type = feature.geometry.type.toLowerCase();
+    let linearRing;
+    let id;
+    let name;
+    let polygon;
+
+    switch (type) {
+      case 'polygon':
+        linearRing = feature.geometry.coordinates;
+        id = Sha1.hash(JSON.stringify(linearRing));
+        name = feature.properties.map_park_n;
+        polygon = turf.polygon(linearRing, { id: id, map_park_n: name });
+        arr.push(polygon);
+        break;
+      case 'multipolygon':
+        arr = arr.concat(multiToArray(feature));
+        break;
+      default:
+        console.error(`Invalid geometry type: ${type}`);
+    }
+  });
+  return arr;
+}
 
 /**
  *  Function to reduce the polygon count of a GeoJSON FeatureCollection,
@@ -302,7 +301,6 @@ function multiToArray(m) {
  */
 
 function fCPolygonUnion(fC) {
-
 /*
   Algorithm:
 
@@ -328,11 +326,11 @@ function fCPolygonUnion(fC) {
 
   timerIntersect = 0;
   timerUnion = 0;
-  var timerMerge = 0;
+  // let timerMerge = 0;
 
   // create array of polygons
-  var polygons = toPolygonArray(fC);
-  console.log('Input polygon count: ', polygons.length)
+  const polygons = toPolygonArray(fC);
+  console.log('Input polygon count: ', polygons.length);
 
 /*
   // ensure that each has a unique id
@@ -347,7 +345,7 @@ function fCPolygonUnion(fC) {
   })
 */
 
-  // create map to hold unioned polygons
+  // Create map to hold unioned polygons
   const polygonMap = {};
 
   // Process each polygon
@@ -373,7 +371,7 @@ function fCPolygonUnion(fC) {
         // Perform bounding box check before using turf.intersect (which is expensive)
         const tBB = turf.bbox(testPolygon);
         // console.log("tBB", JSON.stringify(tBB, null, 1))
-        
+
         /* eslint-disable prefer-destructuring */
         const mBB = turf.bbox(mapPolygon);
         tBB.minX = tBB[0];
