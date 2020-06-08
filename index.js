@@ -59,42 +59,35 @@ function init() {
   mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
   const center = [-122.45, 37.75];
 
-  var map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/boeric/cipbfpxon001kbbnp2hd32fe4',
-      center: center,
-      zoom: 12
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/boeric/cipbfpxon001kbbnp2hd32fe4',
+    center,
+    zoom: 12,
   });
   map.addControl(new mapboxgl.Navigation());
 
-  map.on('click', function(e) {
-    var p = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'Point',
-        'coordinates': [e.lngLat.lng, e.lngLat.lat]
-      }
-    };
+  map.on('click', (e) => {
     console.log('[' + e.lngLat.lng + ', ' + e.lngLat.lat + '],')
-  })
-  map.getCanvas().style.cursor = 'crosshair'
+  });
+  map.getCanvas().style.cursor = 'crosshair';
 
-  //map.scrollZoom.disable()
+  // map.scrollZoom.disable()
   map.dragRotate.disable();
-  map.off('contextmenu')
+  map.off('contextmenu');
 
-  // Setup our svg layer that we can manipulate with d3
-  var container = map.getCanvasContainer()
+  // Setup the Svg layer that we can manipulate with d3
+  const container = map.getCanvasContainer()
 
-  var path = d3.geo.path()
-      .projection(function(lonlat, i) {
-        try {
-          var p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]))
-          return [p.x, p.y];
-        } catch(e) {
-          console.log(e, i, lonlat)
-        }
-      });
+  const path = d3.geo.path()
+    .projection((lonlat, i) => {
+      try {
+        const p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]))
+        return [p.x, p.y];
+      } catch (e) {
+        console.log(e, i, lonlat);
+      }
+    });
 
   var buffered = buffer(layers[0], 200, 'meters');
   console.log('buffered', buffered);
@@ -112,7 +105,7 @@ function init() {
   }
 
   var lastRadius = 200;
-  var setRadius = function(r) {
+  var setRadius = (r) => {
     console.log('setting radius ', r);
     r = r || lastRadius;
     lastRadius = r;
