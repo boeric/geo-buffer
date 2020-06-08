@@ -293,28 +293,28 @@ function buffer(fC, r) {
  */
 
 function fCPolygonUnion(fC) {
-/*
-  Algorithm:
+  /*
+    Algorithm:
 
-  1. Flatten the fC to an array of polygons
-  2. Create master combined polygon map object
-  3. Loop through polygon array
-     - For each test polygon
-       - Loop through all current polygons in map
-       - Generate array of intersecting polygons
-       – If no intersecting polygons, add test polygon to map
-       - Process intersecting polygons recursively
-       – Create a copy intersecting array
-       - Create temporary polygon, initially set to test polygon
-       – Recursively process array copy, removing and processing one polygon at a time
-       - Perform union of temporary polygon and current polygon
-       - Replace temporary polygon with unioned polygon
-       - Repeat until array copy is empty
-       - Delete the intersecting polygons from map
-       - Add the temporary polygon to map
-  4. Convert polygon map to array
-  5. Create feature collection from array
-*/
+    1. Flatten the fC to an array of polygons
+    2. Create master combined polygon map object
+    3. Loop through polygon array
+      - For each test polygon
+        - Loop through all current polygons in map
+        - Generate array of intersecting polygons
+        – If no intersecting polygons, add test polygon to map
+        - Process intersecting polygons recursively
+        – Create a copy intersecting array
+        - Create temporary polygon, initially set to test polygon
+        – Recursively process array copy, removing and processing one polygon at a time
+        - Perform union of temporary polygon and current polygon
+        - Replace temporary polygon with unioned polygon
+        - Repeat until array copy is empty
+        - Delete the intersecting polygons from map
+        - Add the temporary polygon to map
+    4. Convert polygon map to array
+    5. Create feature collection from array
+  */
 
   timerIntersect = 0;
   timerUnion = 0;
@@ -324,24 +324,24 @@ function fCPolygonUnion(fC) {
   const polygons = toPolygonArray(fC);
   console.log('Input polygon count: ', polygons.length);
 
-/*
-  // ensure that each has a unique id
-  polygons.forEach(function(polygon) {
-    delete polygon.properties.id;
+  /*
+    // ensure that each has a unique id
+    polygons.forEach(function(polygon) {
+      delete polygon.properties.id;
 
-    if (!(id in polygon.properties)) {
-      var linearRing = polygon.geometry.coordinates;
-      var id = Sha1.hash(JSON.stringify(linearRing));
-      polygon.properties.id = id;
-    }
-  })
-*/
+      if (!(id in polygon.properties)) {
+        var linearRing = polygon.geometry.coordinates;
+        var id = Sha1.hash(JSON.stringify(linearRing));
+        polygon.properties.id = id;
+      }
+    })
+  */
 
   // Create map to hold unioned polygons
   const polygonMap = {};
 
   // Process each polygon
-  polygons.forEach((testPolygon, i) => {
+  polygons.forEach((testPolygon) => {
     // console.log("Processing polygon: ", i, testPolygon.properties["map_park_n"])
 
     // Get all current keys in the polygon map
@@ -394,24 +394,24 @@ function fCPolygonUnion(fC) {
             intersect = turf.intersect(testPolygon, mapPolygon);
             // console.log("intersect", JSON.stringify(intersect,null, 1))
           } catch (e) {
-            console.error('Error in turf.intersect: ' + e + ', polygon: ' + testPolygon.properties.map_park_n);
+            console.error(`Error in turf.intersect: ${e}, polygon: ${testPolygon.properties.map_park_n}`);
             return;
           }
           const tsEnd = Date.now();
           timerIntersect += tsEnd - tsStart;
 
-          // if intersection, save the map polygon
+          // If intersection, save the map polygon
           if (intersect !== undefined) {
             intersects.push(mapPolygon);
           }
         }
       })
 
-      var tsIntersectTotalEnd = Date.now();
+      const tsIntersectTotalEnd = Date.now();
       tsIntersectTotalElapsed += tsIntersectTotalEnd - tsIntersectTotalStart;
 
       if (intersects.length == 0) {
-        // no intersection: add test polygon to polygon map
+        // No intersection: add test polygon to polygon map
         testPolygon.properties.mergeCount = 1;
         polygonMap[testPolygon.properties.id] = testPolygon;
 
@@ -423,7 +423,7 @@ function fCPolygonUnion(fC) {
     } else {
       // map empty
 
-      //initialize map
+      // Initialize map
       testPolygon.properties.mergeCount = 1;
       polygonMap[testPolygon.properties.id] = testPolygon;
     }
