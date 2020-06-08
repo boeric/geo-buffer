@@ -1,0 +1,23 @@
+{
+  "name": "geo-buffer",
+  "version": "1.0.0",
+  "description": "Demos how to use the Turf library with MapboxGL",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start-server": "node_modules/http-server/bin/http-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boeric/geo-buffer.git"
+  },
+  "author": "Bo Ericsson <bo@boe.net> (http://www.boe.net)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/boeric/geo-buffer/issues"
+  },
+  "homepage": "https://github.com/boeric/geo-buffer#readme",
+  "dependencies": {
+    "http-server": "^0.12.3"
+  }
+}
