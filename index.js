@@ -49,15 +49,15 @@ async function getGeojson(geojson, callback) {
 }
 
 function init() {
-  var doMerge = false;
+  let doMerge = false;
   console.log('init', layers);
 
-  layers[0] = toPolygonArray(layers[0])
-  layers[0] = turf.featurecollection(layers[0])
-  console.log('main layer: ', layers[0])
+  layers[0] = toPolygonArray(layers[0]);
+  layers[0] = turf.featurecollection(layers[0]);
+  console.log('main layer: ', layers[0]);
 
   mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
-  var center = [-122.45, 37.75];
+  const center = [-122.45, 37.75];
 
   var map = new mapboxgl.Map({
       container: 'map',
