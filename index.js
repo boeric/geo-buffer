@@ -2,21 +2,8 @@
 
 /* global d3, turf, Sha1 */
 
-async function getResource(resource, callback) {
-  try {
-    fetch(resource)
-      .then((response) => {
-        response.json().then((data) => {
-          callback(data);
-        });
-      });
-  } catch (e) {
-    console.log(`Could not fetch resource ${resource}`);
-  }
-}
 
-// const ROTL = Sha1.ROTL(1, 2);
-// console.log('turf', turf);
+// Variables
 
 let timerIntersect;
 let timerUnion;
@@ -24,8 +11,6 @@ let tsIntersectTotalElapsed;
 let mergeElapsed;
 let mergeCount = 0;
 const resource = 'geo-buffer.geojson';
-
-
 
 // polyfill for missing turf method
 if (turf.bbox === undefined) {
@@ -50,6 +35,21 @@ if (turf.bbox === undefined) {
 
 let layers = [];
 
+
+// Functions
+
+async function getGeojson(geojson, callback) {
+  try {
+    fetch(geojson)
+      .then((response) => {
+        response.json().then((data) => {
+          callback(data);
+        });
+      });
+  } catch (e) {
+    console.log(`Could not fetch resource ${resource}`);
+  }
+}
 
 
 function init() {
@@ -519,8 +519,8 @@ function fCPolygonUnion(fC) {
 
 } // end fCPolygonUnion
 
-
-getResource(resource, (data) => {
+// Entry point
+getGeojson(resource, (data) => {
   layers = [data];
   init();
 });
