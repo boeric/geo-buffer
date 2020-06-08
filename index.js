@@ -316,6 +316,74 @@ function fCPolygonUnion(fC) {
     5. Create feature collection from array
   */
 
+  // Create map to hold unioned polygons
+  const polygonMap = {};
+
+  // Function to merge in TBD
+  function mergeMap(testPolygon, intersects) {
+    // console.log("  Creating union polygon of ", intersects.length, " polygons (total polygons: ", Object.keys(polygonMap).length + ")");
+
+    // Object to mutate through the recursion (set initially to the polygon under test)
+    let enteringPolygon = JSON.parse(JSON.stringify(testPolygon));
+    enteringPolygon.properties.mergeCount = 0;
+
+    // Copy of the intersection array
+    const polygons = intersects.slice();
+
+    // Function to recursivly merge an array of polygons
+    function merge() {
+      mergeCount++;
+
+      // Pluck first item off the polygon array
+      const mapPolygon = polygons.shift();
+
+      // Perform union of the entering polygon and this map polygon
+      const tsStart = Date.now();
+      let unionPolygon;
+      try {
+        unionPolygon = turf.union(enteringPolygon, mapPolygon);
+      } catch (e) {
+        console.error(`Error in turf.union: ${e}, polygon: '${testPolygon.properties.map_park_n}`);
+        return;
+      }
+      const tsEnd = Date.now();
+      timerUnion += tsEnd - tsStart;
+
+      if (unionPolygon.geometry.type.toLowerCase() !== 'polygon') {
+        throw new Error('TypeError', 'Polygon was expected');
+      }
+
+      // Create id for union polygon
+      const linearRing = unionPolygon.geometry.coordinates;
+      const id = Sha1.hash(JSON.stringify(linearRing));
+      unionPolygon.properties.id = id;
+      unionPolygon.properties.map_park_n =
+        `${enteringPolygon.properties.map_park_n} | ${mapPolygon.properties.map_park_n}`;
+      unionPolygon.properties.mergeCount = enteringPolygon.properties.mergeCount + mapPolygon.properties.mergeCount + 1;
+
+      // Replace entering polygon
+      enteringPolygon = unionPolygon;
+
+      // Repeat until done
+      if (polygons.length > 0) {
+        merge();
+      }
+    }
+
+    // Merge the polygons recursively
+    const mergeStart = Date.now();
+    merge();
+    mergeElapsed += Date.now() - mergeStart;
+
+    // Remove the intersecting polygons
+    intersects.forEach((removePolygon) => {
+      delete polygonMap[removePolygon.properties.id];
+    });
+
+    // Add entering polygon to map
+    polygonMap[enteringPolygon.properties.id] = enteringPolygon;
+  }
+
   timerIntersect = 0;
   timerUnion = 0;
   // let timerMerge = 0;
@@ -337,9 +405,6 @@ function fCPolygonUnion(fC) {
     })
   */
 
-  // Create map to hold unioned polygons
-  const polygonMap = {};
-
   // Process each polygon
   polygons.forEach((testPolygon) => {
     // console.log("Processing polygon: ", i, testPolygon.properties["map_park_n"])
@@ -347,12 +412,12 @@ function fCPolygonUnion(fC) {
     // Get all current keys in the polygon map
     const mapItems = Object.keys(polygonMap);
 
-    // is the map empty?
+    // Is the map empty?
     if (mapItems.length > 0) {
       // Map not empty
       const tsIntersectTotalStart = Date.now();
 
-      // array to hold potential intersections between test polygon and map polygons
+      // Array to hold potential intersections between test polygon and map polygons
       const intersects = [];
 
       // Loop through each map polygon
@@ -377,6 +442,7 @@ function fCPolygonUnion(fC) {
         /* eslint-enable prefer-destructuring */
         // console.log("testBB", JSON.stringify(testPolygonBB, null, 1));
 
+        // eslint-disable-next-line no-shadow
         function BBIntersect(tBB, mBB) {
           if (tBB.maxX < mBB.minX) return false; // tBB is left of mBB
           if (tBB.minX > mBB.maxX) return false; // tBB is right of mBB
@@ -405,12 +471,12 @@ function fCPolygonUnion(fC) {
             intersects.push(mapPolygon);
           }
         }
-      })
+      });
 
       const tsIntersectTotalEnd = Date.now();
       tsIntersectTotalElapsed += tsIntersectTotalEnd - tsIntersectTotalStart;
 
-      if (intersects.length == 0) {
+      if (intersects.length === 0) {
         // No intersection: add test polygon to polygon map
         testPolygon.properties.mergeCount = 1;
         polygonMap[testPolygon.properties.id] = testPolygon;
@@ -421,78 +487,13 @@ function fCPolygonUnion(fC) {
       }
 
     } else {
-      // map empty
-
-      // Initialize map
+      // Map empty, initialize it
       testPolygon.properties.mergeCount = 1;
       polygonMap[testPolygon.properties.id] = testPolygon;
     }
   });
 
-  // Function to merge in
-  function mergeMap(testPolygon, intersects) {
-    // console.log("  Creating union polygon of ", intersects.length, " polygons (total polygons: ", Object.keys(polygonMap).length + ")");
 
-    // Object to mutate through the recursion (set initially to the polygon under test)
-    let enteringPolygon = JSON.parse(JSON.stringify(testPolygon));
-    enteringPolygon.properties.mergeCount = 0;
-
-    // Copy of the intersection array
-    const polygons = intersects.slice();
-
-    // Function to recursivly merge an array of polygons
-    function merge() {
-      mergeCount++;
-
-      // Pluck first item off the polygon array
-      const mapPolygon = polygons.shift();
-
-      // Perform union of the entering polygon and this map polygon
-      const tsStart = Date.now();
-      let unionPolygon;
-      try {
-        unionPolygon = turf.union(enteringPolygon, mapPolygon);
-      } catch (e) {
-        console.error(`Error in turf.union: ' ${e} ', polygon: '${testPolygon.properties.map_park_n}`);
-        return;
-      }
-      const tsEnd = Date.now();
-      timerUnion += tsEnd - tsStart;
-
-      if (unionPolygon.geometry.type.toLowerCase() != 'polygon') {
-        throw new Error('TypeError', 'Polygon was expected')
-      }
-
-      // Create id for union polygon
-      const linearRing = unionPolygon.geometry.coordinates;
-      const id = Sha1.hash(JSON.stringify(linearRing));
-      unionPolygon.properties.id = id;
-      unionPolygon.properties.map_park_n =
-        `${enteringPolygon.properties.map_park_n} | ${mapPolygon.properties.map_park_n}`;
-      unionPolygon.properties.mergeCount = enteringPolygon.properties.mergeCount + mapPolygon.properties.mergeCount + 1;
-
-      // Replace entering polygon
-      enteringPolygon = unionPolygon;
-
-      // Repeat until done
-      if (polygons.length > 0) {
-        merge();
-      };
-    }
-
-    // merge the polygons recursively
-    const mergeStart = Date.now();
-    merge();
-    mergeElapsed += Date.now() - mergeStart;
-
-    // Remove the intersecting polygons
-    intersects.forEach((removePolygon) => {
-      delete polygonMap[removePolygon.properties.id];
-    });
-
-    // Add entering polygon to map
-    polygonMap[enteringPolygon.properties.id] = enteringPolygon;
-  }
 
   // Create output polygon array
   const finalPolygons = [];
@@ -507,8 +508,7 @@ function fCPolygonUnion(fC) {
 
   const fCFinal = turf.featurecollection(finalPolygons);
   return fCFinal;
-
-} // end fCPolygonUnion
+} // End fCPolygonUnion
 
 // Entry point
 getGeojson(resource, (data) => {
