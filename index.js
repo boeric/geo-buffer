@@ -9,12 +9,10 @@ let timerUnion;
 let tsIntersectTotalElapsed;
 let mergeElapsed;
 let mergeCount = 0;
-const resource = 'geo-buffer.geojson';
+const resource = 'geo-buffer.geojson'; // San Francisco Parks
 let layers = [];
 
 // Functions
-
-
 
 async function getGeojson(geojson, callback) {
   try {
@@ -110,7 +108,6 @@ function buffer(fC, r) {
 function fCPolygonUnion(fC) {
   /*
     Algorithm:
-
     1. Flatten the fC to an array of polygons
     2. Create master combined polygon map object
     3. Loop through polygon array
@@ -324,8 +321,11 @@ function fCPolygonUnion(fC) {
 
   const fCFinal = turf.featurecollection(finalPolygons);
   return fCFinal;
-} // End fCPolygonUnion
+}
 
+/**
+ *  Initializes the visualization and establishes event handlers, etc
+ */
 function init() {
   let doMerge = false;
   console.log('init', layers);
@@ -376,7 +376,13 @@ function init() {
     .datum(layers[0])
     .attr('class', 'land');
 
-  function render() { land.attr('d', path); }
+  // Sets new svg path
+  function render() {
+    land.attr('d', path);
+  }
+
+  // Perform the initial render
+  console.log('init, initial render...');
   render();
 
   /*
@@ -387,19 +393,19 @@ function init() {
   const uiElements = [
     d3.select('input[type=range]'),
     d3.select('#polygonStrokeCheckbox'),
-    d3.select('#mergePolygonCheckbox'),
+    d3.select('#mergePolygonsCheckbox'),
   ];
-  uiElements.length = 1;
+  // uiElements.length = 1;
   function enableUI(bool) {
     uiElements.forEach((d) => {
-      console.log(d, bool);
+      // console.log(d, bool);
       d.property('disabled', !bool);
     });
   }
 
   let lastRadius = 200;
   function setRadius(r) {
-    console.log('setting radius ', r);
+    // console.log('setting radius ', r);
     // eslint-disable-next-line no-param-reassign
     r = r || lastRadius;
     lastRadius = r;
@@ -427,28 +433,22 @@ function init() {
     if (doMerge) {
       enableUI(false);
 
-      console.log('do merge...');
+      // console.log('do merge...');
       d3.select('#unionTime').text('Union computation: (computing...)');
 
       setTimeout(() => {
         console.log('generating union...');
-
         mergeCount = 0;
         mergeElapsed = 0;
         const start = Date.now();
-
         const merged = fCPolygonUnion(buffered);
-
         enableUI(true);
-
         const end = Date.now();
         console.log('generated union, elapsed time: ', end - start);
         console.log('mergeCount', mergeCount)
-
         console.log('IntersectTotalElapsed', tsIntersectTotalElapsed);
         console.log('mergeElapsed', mergeElapsed)
         d3.select('#unionTime').text(`Union computation: ${mergeElapsed} ms`);
-
         land.style('stroke', 'black');
         land.datum(merged);
         render();
@@ -458,6 +458,7 @@ function init() {
     return true;
   }
 
+  // eslint-disable-next-line func-names
   d3.select('#control').select('input[type=range]').on('change', function() {
     const elem = d3.select(this);
     const value = elem.property('value');
@@ -465,12 +466,14 @@ function init() {
     setRadius(value);
   });
 
+  // eslint-disable-next-line func-names
   d3.select('#control').select('input[type=range]').on('input', function() {
     const elem = d3.select(this);
-    const value = elem.property('value')
+    const value = elem.property('value');
     d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
   });
 
+  // eslint-disable-next-line func-names
   d3.select('#polygonStrokeCheckbox').on('click', function() {
     const elem = d3.select(this);
     const checked = elem.property('checked');
@@ -479,6 +482,7 @@ function init() {
     land.style('stroke', stroke);
   });
 
+  // eslint-disable-next-line func-names
   d3.select('#mergePolygonsCheckbox').on('click', function() {
     const elem = d3.select(this);
     const checked = elem.property('checked');
@@ -515,6 +519,9 @@ getGeojson(resource, (data) => {
     };
   }
 
+  // Update layers with the geojson data
   layers = [data];
+
+  // Initialize the visualization
   init();
 });
