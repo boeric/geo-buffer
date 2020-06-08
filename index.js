@@ -2,6 +2,10 @@
 
 /* global d3, turf, Sha1, mapboxgl */
 
+// Constants
+
+const DEFAULT_RADIUS = 0;
+
 // Variables
 
 let timerIntersect;
@@ -11,6 +15,8 @@ let mergeElapsed;
 let mergeCount = 0;
 const resource = 'geo-buffer.geojson'; // San Francisco Parks
 let layers = [];
+let radius = DEFAULT_RADIUS;
+const featureTypes = ['multipolygon', 'polygon'];
 
 // Functions
 
@@ -96,7 +102,7 @@ function buffer(fC, r) {
   d3.select('#outputPolygons').text(`Output polygons: ${bufferedPolygons.length}`);
 
   bufferedPolygons = turf.featurecollection(bufferedPolygons);
-  console.log('bufferedPolygons', bufferedPolygons);
+  console.log('Buffered polygons', bufferedPolygons);
 
   return bufferedPolygons;
 }
@@ -165,8 +171,10 @@ function fCPolygonUnion(fC) {
       const tsEnd = Date.now();
       timerUnion += tsEnd - tsStart;
 
-      if (unionPolygon.geometry.type.toLowerCase() !== 'polygon') {
-        throw new Error('TypeError', 'Polygon was expected');
+      // Get the feature type and verify that it is acceptable
+      const featureType = unionPolygon.geometry.type.toLowerCase();
+      if (!featureTypes.includes(featureType)) {
+        throw new Error('TypeError', `Expected one of ${featureTypes}, found ${featureType}`);
       }
 
       // Create id for union polygon
@@ -275,7 +283,7 @@ function fCPolygonUnion(fC) {
 
           try {
             intersect = turf.intersect(testPolygon, mapPolygon);
-            // console.log("intersect", JSON.stringify(intersect,null, 1))
+            // console.log("Intersect", JSON.stringify(intersect,null, 1))
           } catch (e) {
             console.error(`Error in turf.intersect: ${e}, polygon: ${testPolygon.properties.map_park_n}`);
             return;
@@ -315,7 +323,7 @@ function fCPolygonUnion(fC) {
   Object.keys(polygonMap).forEach((mapItem) => {
     finalPolygons.push(polygonMap[mapItem]);
   });
-  console.log('Output polygons', finalPolygons);
+  // console.log('Output polygons', finalPolygons);
   console.log('Output polygon count: ', finalPolygons.length);
   d3.select('#outputPolygons').text(`Output polygons: ${finalPolygons.length}`);
 
@@ -331,11 +339,11 @@ function fCPolygonUnion(fC) {
  */
 function init() {
   let doMerge = false;
-  console.log('init', layers);
+  console.log('Init layers', layers);
 
   layers[0] = toPolygonArray(layers[0]);
   layers[0] = turf.featurecollection(layers[0]);
-  console.log('main layer: ', layers[0]);
+  console.log('Init main layer: ', layers[0]);
 
   mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
   const center = [-122.45, 37.75];
@@ -371,8 +379,8 @@ function init() {
       }
     });
 
-  let buffered = buffer(layers[0], 200, 'meters');
-  console.log('buffered', buffered);
+  // let buffered = buffer(layers[0], 200, 'meters');
+  // console.log('buffered', buffered);
 
   const svg = d3.select(container).append('svg');
   const land = svg.append('path')
@@ -385,7 +393,7 @@ function init() {
   }
 
   // Perform the initial render
-  console.log('init, initial render...');
+  console.log('Initial render...');
   render();
 
   /*
@@ -406,24 +414,17 @@ function init() {
     });
   }
 
-  let lastRadius = 200;
-  function setRadius(r) {
-    // console.log('setting radius ', r);
-    // eslint-disable-next-line no-param-reassign
-    r = r || lastRadius;
-    lastRadius = r;
-
+  // eslint-disable-next-line no-shadow
+  function setRadius(radius) {
     const startTime = Date.now();
 
     enableUI(false);
-    buffered = buffer(layers[0], r, 'meters');
+    const buffered = buffer(layers[0], radius, 'meters');
     enableUI(true);
 
     const buffTime = Date.now();
-    land.datum(r === 0 ? layers[0] : buffered);
-    // const datumTime = Date.now();
+    land.datum(radius === 0 ? layers[0] : buffered);
     render();
-    // const renderTime = Date.now();
 
     // console.log("turf.buffer: ", buffTime - startTime)
     d3.select('#bufferTime').text(`Buffer computation: ${buffTime - startTime} ms`);
@@ -440,17 +441,20 @@ function init() {
       d3.select('#unionTime').text('Union computation: (computing...)');
 
       setTimeout(() => {
-        console.log('generating union...');
+        console.log('Generating union...');
         mergeCount = 0;
         mergeElapsed = 0;
+
         const start = Date.now();
         const merged = fCPolygonUnion(buffered);
         enableUI(true);
         const end = Date.now();
-        console.log('generated union, elapsed time: ', end - start);
-        console.log('mergeCount', mergeCount);
+
+        console.log('Generated union, elapsed time: ', end - start);
+        console.log('MergeCount', mergeCount);
         console.log('IntersectTotalElapsed', tsIntersectTotalElapsed);
-        console.log('mergeElapsed', mergeElapsed);
+        console.log('MergeElapsed', mergeElapsed);
+
         d3.select('#unionTime').text(`Union computation: ${mergeElapsed} ms`);
         land.style('stroke', 'black');
         land.datum(merged);
@@ -464,9 +468,9 @@ function init() {
   // eslint-disable-next-line func-names
   d3.select('#control').select('input[type=range]').on('change', function () {
     const elem = d3.select(this);
-    const value = elem.property('value');
-    d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
-    setRadius(value);
+    radius = elem.property('value');
+    d3.select('#distanceLabel').text(`Distance From Park: ${radius} meters`);
+    setRadius(radius);
   });
 
   // eslint-disable-next-line func-names
@@ -480,7 +484,6 @@ function init() {
   d3.select('#polygonStrokeCheckbox').on('click', function () {
     const elem = d3.select(this);
     const checked = elem.property('checked');
-    console.log('checked', checked);
     const stroke = checked ? 'black' : 'none';
     land.style('stroke', stroke);
   });
@@ -489,9 +492,8 @@ function init() {
   d3.select('#mergePolygonsCheckbox').on('click', function () {
     const elem = d3.select(this);
     const checked = elem.property('checked');
-    console.log('checked', checked);
     doMerge = checked;
-    setRadius();
+    setRadius(radius);
   });
 
   // re-render our visualization whenever the view changes
@@ -504,14 +506,15 @@ getGeojson(resource, (data) => {
   // Polyfill for missing turf method
   if (turf.bbox === undefined) {
     turf.bbox = (polygon) => {
-      // Did we get a polygon?
-      if (polygon.geometry.type.toLowerCase() !== 'polygon') {
-        throw new Error('TypeError', 'Expected Polygon');
+      // Get the feature type and verify that it is acceptable
+      const featureType = polygon.geometry.type.toLowerCase();
+      if (!featureTypes.includes(featureType)) {
+        throw new Error('TypeError', `Expected one of ${featureTypes}, found ${featureType}`);
       }
 
       // Get the coordinates
       const linearRing = polygon.geometry.coordinates;
-      // console.log("linearRing", linearRing)
+      // console.log("Linear ring", linearRing)
 
       // Compute the extent
       const extentLng = d3.extent(linearRing[0], (d) => d[1]);
