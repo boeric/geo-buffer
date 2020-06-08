@@ -1,6 +1,6 @@
 /* eslint-disable no-console, no-plusplus */
 
-/* global d3, turf, Sha1 */
+/* global d3, turf, Sha1, mapboxgl */
 
 // Variables
 
@@ -17,7 +17,7 @@ let layers = [];
 // polyfill for missing turf method
 if (turf.bbox === undefined) {
   turf.bbox = (polygon) => {
-    // did we get a polygon?
+    // Did we get a polygon?
     if (polygon.geometry.type.toLowerCase() !== 'polygon') {
       throw new Error('TypeError', 'Expected Polygon');
     }
