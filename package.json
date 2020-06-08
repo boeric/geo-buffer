@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start-server": "node_modules/http-server/bin/http-server"
+    "start-server": "node_modules/http-server/bin/http-server",
+    "lint": "node_modules/eslint/bin/eslint.js index.js"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,7 @@
   },
   "homepage": "https://github.com/boeric/geo-buffer#readme",
   "dependencies": {
+    "eslint": "^7.2.0",
     "http-server": "^0.12.3"
   }
 }

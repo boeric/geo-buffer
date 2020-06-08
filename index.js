@@ -133,7 +133,11 @@ function fCPolygonUnion(fC) {
 
   // Function to merge in TBD
   function mergeMap(testPolygon, intersects) {
-    // console.log("  Creating union polygon of ", intersects.length, " polygons (total polygons: ", Object.keys(polygonMap).length + ")");
+    /*
+    const str0 = `Creating union polygon of ${intersects.length} polygons`;
+    const str1 = `(total polygons: ${Object.keys(polygonMap).length})`;
+    console.log(`${str0} ${str1}`);
+    */
 
     // Object to mutate through the recursion (set initially to the polygon under test)
     let enteringPolygon = JSON.parse(JSON.stringify(testPolygon));
@@ -294,12 +298,10 @@ function fCPolygonUnion(fC) {
         // eslint-disable-next-line no-param-reassign
         testPolygon.properties.mergeCount = 1;
         polygonMap[testPolygon.properties.id] = testPolygon;
-
       } else {
         // intersection(s) found, merge in the test polygon taking into account the intersects
         mergeMap(testPolygon, intersects);
       }
-
     } else {
       // Map empty, initialize it
       // eslint-disable-next-line no-param-reassign
@@ -313,8 +315,9 @@ function fCPolygonUnion(fC) {
   Object.keys(polygonMap).forEach((mapItem) => {
     finalPolygons.push(polygonMap[mapItem]);
   });
+  console.log('Output polygons', finalPolygons);
   console.log('Output polygon count: ', finalPolygons.length);
-  d3.select('#outputPolygons').text(`Output polygons: ${finalPolygons.length}`)
+  d3.select('#outputPolygons').text(`Output polygons: ${finalPolygons.length}`);
 
   console.log(`Intersect test time: ${timerIntersect}`);
   console.log(`Union processing time: ${timerUnion}`);
@@ -343,10 +346,10 @@ function init() {
     center,
     zoom: 12,
   });
-  map.addControl(new mapboxgl.Navigation());
+  map.addControl(new mapboxgl.NavigationControl());
 
   map.on('click', (e) => {
-    console.log(`[${e.lngLat.lng}, ${e.lngLat.lat}]`);
+    console.log(`Click location: [${e.lngLat.lng}, ${e.lngLat.lat}]`);
   });
   map.getCanvas().style.cursor = 'crosshair';
 
@@ -395,7 +398,7 @@ function init() {
     d3.select('#polygonStrokeCheckbox'),
     d3.select('#mergePolygonsCheckbox'),
   ];
-  // uiElements.length = 1;
+
   function enableUI(bool) {
     uiElements.forEach((d) => {
       // console.log(d, bool);
@@ -445,9 +448,9 @@ function init() {
         enableUI(true);
         const end = Date.now();
         console.log('generated union, elapsed time: ', end - start);
-        console.log('mergeCount', mergeCount)
+        console.log('mergeCount', mergeCount);
         console.log('IntersectTotalElapsed', tsIntersectTotalElapsed);
-        console.log('mergeElapsed', mergeElapsed)
+        console.log('mergeElapsed', mergeElapsed);
         d3.select('#unionTime').text(`Union computation: ${mergeElapsed} ms`);
         land.style('stroke', 'black');
         land.datum(merged);
@@ -459,7 +462,7 @@ function init() {
   }
 
   // eslint-disable-next-line func-names
-  d3.select('#control').select('input[type=range]').on('change', function() {
+  d3.select('#control').select('input[type=range]').on('change', function () {
     const elem = d3.select(this);
     const value = elem.property('value');
     d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
@@ -467,14 +470,14 @@ function init() {
   });
 
   // eslint-disable-next-line func-names
-  d3.select('#control').select('input[type=range]').on('input', function() {
+  d3.select('#control').select('input[type=range]').on('input', function () {
     const elem = d3.select(this);
     const value = elem.property('value');
     d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
   });
 
   // eslint-disable-next-line func-names
-  d3.select('#polygonStrokeCheckbox').on('click', function() {
+  d3.select('#polygonStrokeCheckbox').on('click', function () {
     const elem = d3.select(this);
     const checked = elem.property('checked');
     console.log('checked', checked);
@@ -483,7 +486,7 @@ function init() {
   });
 
   // eslint-disable-next-line func-names
-  d3.select('#mergePolygonsCheckbox').on('click', function() {
+  d3.select('#mergePolygonsCheckbox').on('click', function () {
     const elem = d3.select(this);
     const checked = elem.property('checked');
     console.log('checked', checked);
