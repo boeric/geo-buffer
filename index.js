@@ -14,26 +14,7 @@ let layers = [];
 
 // Functions
 
-// polyfill for missing turf method
-if (turf.bbox === undefined) {
-  turf.bbox = (polygon) => {
-    // Did we get a polygon?
-    if (polygon.geometry.type.toLowerCase() !== 'polygon') {
-      throw new Error('TypeError', 'Expected Polygon');
-    }
 
-    // Get the coordinates
-    const linearRing = polygon.geometry.coordinates;
-    // console.log("linearRing", linearRing)
-
-    // Compute the extent
-    const extentLng = d3.extent(linearRing[0], (d) => d[1]);
-    const extentLat = d3.extent(linearRing[0], (d) => d[0]);
-
-    // Generate result
-    return [extentLat[0], extentLng[0], extentLat[1], extentLng[1]];
-  };
-}
 
 async function getGeojson(geojson, callback) {
   try {
@@ -95,171 +76,6 @@ function toPolygonArray(fC) {
   return arr;
 }
 
-function init() {
-  let doMerge = false;
-  console.log('init', layers);
-
-  layers[0] = toPolygonArray(layers[0]);
-  layers[0] = turf.featurecollection(layers[0]);
-  console.log('main layer: ', layers[0]);
-
-  mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
-  const center = [-122.45, 37.75];
-
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/boeric/cipbfpxon001kbbnp2hd32fe4',
-    center,
-    zoom: 12,
-  });
-  map.addControl(new mapboxgl.Navigation());
-
-  map.on('click', (e) => {
-    console.log('[' + e.lngLat.lng + ', ' + e.lngLat.lat + '],')
-  });
-  map.getCanvas().style.cursor = 'crosshair';
-
-  // map.scrollZoom.disable()
-  map.dragRotate.disable();
-  map.off('contextmenu');
-
-  // Setup the Svg layer that we can manipulate with d3
-  const container = map.getCanvasContainer()
-
-  const path = d3.geo.path()
-    .projection((lonlat, i) => {
-      try {
-        const p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]))
-        return [p.x, p.y];
-      } catch (e) {
-        console.log(e, i, lonlat);
-      }
-    });
-
-  var buffered = buffer(layers[0], 200, 'meters');
-  console.log('buffered', buffered);
-
-  var svg = d3.select(container).append('svg')
-  var land = svg.append('path')
-    .datum(layers[0])
-    .attr('class', 'land');
-
-  function render() { land.attr('d', path); }
-  render();
-
-  var setStrokeWidth = function(w) {
-    land.style('stroke-width', w + 'px')
-  }
-
-  var lastRadius = 200;
-  var setRadius = (r) => {
-    console.log('setting radius ', r);
-    r = r || lastRadius;
-    lastRadius = r;
-
-    var startTime = Date.now();
-
-    enableUI(false);
-    buffered = buffer(layers[0], r, 'meters');
-    enableUI(true);
-
-    var buffTime = Date.now();
-    land.datum(r === 0 ? layers[0] : buffered);
-    var datumTime = Date.now();
-    render();
-    var renderTime = Date.now();
-
-    //console.log("turf.buffer: ", buffTime - startTime)
-    d3.select('#bufferTime').text('Buffer computation: ' + (buffTime - startTime) + ' ms');
-    d3.select('#unionTime').text('Union computation: ');
-    //console.log("d3.datum: ", datumTime - startTime)
-    //console.log("d3.render: ", renderTime - startTime)
-
-    tsIntersectTotalElapsed = 0;
-
-    if (doMerge) {
-        enableUI(false);
-
-        console.log('do merge...')
-        d3.select('#unionTime').text('Union computation: (computing...)');
-
-        setTimeout(function() {
-          console.log('generating union...');
-
-          mergeCount = 0;
-          mergeElapsed = 0;
-          var start = Date.now();
-
-          var merged = fCPolygonUnion(buffered);
-
-          enableUI(true);
-
-          var end = Date.now();
-          console.log('generated union, elapsed time: ', end - start);
-          console.log('mergeCount', mergeCount)
-
-          console.log('IntersectTotalElapsed', tsIntersectTotalElapsed);
-          console.log('mergeElapsed', mergeElapsed)
-          d3.select('#unionTime').text('Union computation: ' + mergeElapsed + ' ms');
-
-          land.style('stroke', 'black')
-          land.datum(merged);
-          render();
-
-        }, 100)
-    }
-
-    return true;
-  }
-
-  d3.select('#control').select('input[type=range]').on('change', function() {
-    var elem = d3.select(this);
-    var value = elem.property('value')
-    d3.select('#distanceLabel').text('Distance From Park: ' + value + ' meters');
-    setRadius(value);
-  })
-
-  d3.select('#control').select('input[type=range]').on('input', function() {
-    var elem = d3.select(this);
-    var value = elem.property('value')
-    d3.select('#distanceLabel').text('Distance From Park: ' + value + ' meters');
-  })
-
-  d3.select('#polygonStrokeCheckbox').on('click', function() {
-    var elem = d3.select(this);
-    var checked = elem.property('checked');
-    console.log('checked', checked);
-    var stroke = checked ? 'black' : 'none'
-    land.style('stroke', stroke)
-  })
-
-  d3.select('#mergePolygonsCheckbox').on('click', function() {
-    var elem = d3.select(this);
-    var checked = elem.property('checked');
-    console.log('checked', checked);
-    doMerge = checked;
-    setRadius();
-  })
-
-  var uiElements = [
-    d3.select('input[type=range]'),
-    d3.select('#polygonStrokeCheckbox'),
-    d3.select('#mergePolygonCheckbox')
-  ]
-  uiElements.length = 1;
-  function enableUI(bool) {
-    uiElements.forEach(function(d) {
-      console.log(d, bool)
-      d.property('disabled', !bool);
-    })
-  }
-
-  // re-render our visualization whenever the view changes
-  map.on('viewreset', function() { render(); })
-  map.on('move', function() { render(); })
-}
-
-
 function buffer(fC, r) {
   const polygons = toPolygonArray(fC);
   let bufferedPolygons = [];
@@ -288,10 +104,9 @@ function buffer(fC, r) {
 }
 
 /**
- *  Function to reduce the polygon count of a GeoJSON FeatureCollection,
+ *  Function to reduce the polygon count of a GeoJSON FeatureCollection (fC),
  *  by merging overlapping polygons, using turf.intersect and turf.union
  */
-
 function fCPolygonUnion(fC) {
   /*
     Algorithm:
@@ -357,9 +172,10 @@ function fCPolygonUnion(fC) {
       const linearRing = unionPolygon.geometry.coordinates;
       const id = Sha1.hash(JSON.stringify(linearRing));
       unionPolygon.properties.id = id;
-      unionPolygon.properties.map_park_n =
-        `${enteringPolygon.properties.map_park_n} | ${mapPolygon.properties.map_park_n}`;
-      unionPolygon.properties.mergeCount = enteringPolygon.properties.mergeCount + mapPolygon.properties.mergeCount + 1;
+      unionPolygon.properties.map_park_n = (
+        `${enteringPolygon.properties.map_park_n} | ${mapPolygon.properties.map_park_n}`);
+      unionPolygon.properties.mergeCount = (
+        enteringPolygon.properties.mergeCount + mapPolygon.properties.mergeCount + 1);
 
       // Replace entering polygon
       enteringPolygon = unionPolygon;
@@ -388,12 +204,12 @@ function fCPolygonUnion(fC) {
   timerUnion = 0;
   // let timerMerge = 0;
 
-  // create array of polygons
+  // Create array of polygons
   const polygons = toPolygonArray(fC);
   console.log('Input polygon count: ', polygons.length);
 
   /*
-    // ensure that each has a unique id
+    // Ensure that each has a unique id
     polygons.forEach(function(polygon) {
       delete polygon.properties.id;
 
@@ -478,6 +294,7 @@ function fCPolygonUnion(fC) {
 
       if (intersects.length === 0) {
         // No intersection: add test polygon to polygon map
+        // eslint-disable-next-line no-param-reassign
         testPolygon.properties.mergeCount = 1;
         polygonMap[testPolygon.properties.id] = testPolygon;
 
@@ -488,12 +305,11 @@ function fCPolygonUnion(fC) {
 
     } else {
       // Map empty, initialize it
+      // eslint-disable-next-line no-param-reassign
       testPolygon.properties.mergeCount = 1;
       polygonMap[testPolygon.properties.id] = testPolygon;
     }
   });
-
-
 
   // Create output polygon array
   const finalPolygons = [];
@@ -510,8 +326,195 @@ function fCPolygonUnion(fC) {
   return fCFinal;
 } // End fCPolygonUnion
 
+function init() {
+  let doMerge = false;
+  console.log('init', layers);
+
+  layers[0] = toPolygonArray(layers[0]);
+  layers[0] = turf.featurecollection(layers[0]);
+  console.log('main layer: ', layers[0]);
+
+  mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
+  const center = [-122.45, 37.75];
+
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/boeric/cipbfpxon001kbbnp2hd32fe4',
+    center,
+    zoom: 12,
+  });
+  map.addControl(new mapboxgl.Navigation());
+
+  map.on('click', (e) => {
+    console.log(`[${e.lngLat.lng}, ${e.lngLat.lat}]`);
+  });
+  map.getCanvas().style.cursor = 'crosshair';
+
+  // map.scrollZoom.disable()
+  map.dragRotate.disable();
+  map.off('contextmenu');
+
+  // Setup the Svg layer that we can manipulate with d3
+  const container = map.getCanvasContainer();
+
+  const path = d3.geo.path()
+    .projection((lonlat, i) => {
+      try {
+        const p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]));
+        return [p.x, p.y];
+      } catch (e) {
+        console.log(e, i, lonlat);
+        return null;
+      }
+    });
+
+  let buffered = buffer(layers[0], 200, 'meters');
+  console.log('buffered', buffered);
+
+  const svg = d3.select(container).append('svg');
+  const land = svg.append('path')
+    .datum(layers[0])
+    .attr('class', 'land');
+
+  function render() { land.attr('d', path); }
+  render();
+
+  /*
+  const setStrokeWidth = (w) => {
+    land.style('stroke-width', `${w}px`);
+  };
+  */
+  const uiElements = [
+    d3.select('input[type=range]'),
+    d3.select('#polygonStrokeCheckbox'),
+    d3.select('#mergePolygonCheckbox'),
+  ];
+  uiElements.length = 1;
+  function enableUI(bool) {
+    uiElements.forEach((d) => {
+      console.log(d, bool);
+      d.property('disabled', !bool);
+    });
+  }
+
+  let lastRadius = 200;
+  function setRadius(r) {
+    console.log('setting radius ', r);
+    // eslint-disable-next-line no-param-reassign
+    r = r || lastRadius;
+    lastRadius = r;
+
+    const startTime = Date.now();
+
+    enableUI(false);
+    buffered = buffer(layers[0], r, 'meters');
+    enableUI(true);
+
+    const buffTime = Date.now();
+    land.datum(r === 0 ? layers[0] : buffered);
+    // const datumTime = Date.now();
+    render();
+    // const renderTime = Date.now();
+
+    // console.log("turf.buffer: ", buffTime - startTime)
+    d3.select('#bufferTime').text(`Buffer computation: ${buffTime - startTime} ms`);
+    d3.select('#unionTime').text('Union computation: ');
+    // console.log("d3.datum: ", datumTime - startTime)
+    // console.log("d3.render: ", renderTime - startTime)
+
+    tsIntersectTotalElapsed = 0;
+
+    if (doMerge) {
+      enableUI(false);
+
+      console.log('do merge...');
+      d3.select('#unionTime').text('Union computation: (computing...)');
+
+      setTimeout(() => {
+        console.log('generating union...');
+
+        mergeCount = 0;
+        mergeElapsed = 0;
+        const start = Date.now();
+
+        const merged = fCPolygonUnion(buffered);
+
+        enableUI(true);
+
+        const end = Date.now();
+        console.log('generated union, elapsed time: ', end - start);
+        console.log('mergeCount', mergeCount)
+
+        console.log('IntersectTotalElapsed', tsIntersectTotalElapsed);
+        console.log('mergeElapsed', mergeElapsed)
+        d3.select('#unionTime').text(`Union computation: ${mergeElapsed} ms`);
+
+        land.style('stroke', 'black');
+        land.datum(merged);
+        render();
+      }, 100);
+    }
+
+    return true;
+  }
+
+  d3.select('#control').select('input[type=range]').on('change', function() {
+    const elem = d3.select(this);
+    const value = elem.property('value');
+    d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
+    setRadius(value);
+  });
+
+  d3.select('#control').select('input[type=range]').on('input', function() {
+    const elem = d3.select(this);
+    const value = elem.property('value')
+    d3.select('#distanceLabel').text(`Distance From Park: ${value} meters`);
+  });
+
+  d3.select('#polygonStrokeCheckbox').on('click', function() {
+    const elem = d3.select(this);
+    const checked = elem.property('checked');
+    console.log('checked', checked);
+    const stroke = checked ? 'black' : 'none';
+    land.style('stroke', stroke);
+  });
+
+  d3.select('#mergePolygonsCheckbox').on('click', function() {
+    const elem = d3.select(this);
+    const checked = elem.property('checked');
+    console.log('checked', checked);
+    doMerge = checked;
+    setRadius();
+  });
+
+  // re-render our visualization whenever the view changes
+  map.on('viewreset', () => { render(); });
+  map.on('move', () => { render(); });
+}
+
 // Entry point
 getGeojson(resource, (data) => {
+  // Polyfill for missing turf method
+  if (turf.bbox === undefined) {
+    turf.bbox = (polygon) => {
+      // Did we get a polygon?
+      if (polygon.geometry.type.toLowerCase() !== 'polygon') {
+        throw new Error('TypeError', 'Expected Polygon');
+      }
+
+      // Get the coordinates
+      const linearRing = polygon.geometry.coordinates;
+      // console.log("linearRing", linearRing)
+
+      // Compute the extent
+      const extentLng = d3.extent(linearRing[0], (d) => d[1]);
+      const extentLat = d3.extent(linearRing[0], (d) => d[0]);
+
+      // Generate result
+      return [extentLat[0], extentLng[0], extentLat[1], extentLng[1]];
+    };
+  }
+
   layers = [data];
   init();
 });
