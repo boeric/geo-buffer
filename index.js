@@ -348,34 +348,34 @@ function fCPolygonUnion(fC) {
 */
 
   // create map to hold unioned polygons
-  var polygonMap = {};
+  const polygonMap = {};
 
-  // process each polygon
-  polygons.forEach(function(testPolygon, i) {
-    //console.log("Processing polygon: ", i, testPolygon.properties["map_park_n"])
+  // Process each polygon
+  polygons.forEach((testPolygon, i) => {
+    // console.log("Processing polygon: ", i, testPolygon.properties["map_park_n"])
 
-    // get all current keys in the polygon map
-    var mapItems = Object.keys(polygonMap);
+    // Get all current keys in the polygon map
+    const mapItems = Object.keys(polygonMap);
 
     // is the map empty?
     if (mapItems.length > 0) {
-      // map not empty
-
-      var tsIntersectTotalStart = Date.now();
+      // Map not empty
+      const tsIntersectTotalStart = Date.now();
 
       // array to hold potential intersections between test polygon and map polygons
-      var intersects = [];
+      const intersects = [];
 
-      // loop through each map polygon
-      mapItems.forEach(function(mapItem) {
+      // Loop through each map polygon
+      mapItems.forEach((mapItem) => {
+        // Get the map polygon
+        const mapPolygon = polygonMap[mapItem];
 
-        // get the map polygon
-        var mapPolygon = polygonMap[mapItem];
-
-        // perform bounding box check before using turf.intersect (which is expensive)
-        var tBB = turf.bbox(testPolygon);
-        //console.log("tBB", JSON.stringify(tBB, null, 1))
-        var mBB = turf.bbox(mapPolygon);
+        // Perform bounding box check before using turf.intersect (which is expensive)
+        const tBB = turf.bbox(testPolygon);
+        // console.log("tBB", JSON.stringify(tBB, null, 1))
+        
+        /* eslint-disable prefer-destructuring */
+        const mBB = turf.bbox(mapPolygon);
         tBB.minX = tBB[0];
         tBB.maxX = tBB[2];
         tBB.minY = tBB[1];
@@ -384,31 +384,34 @@ function fCPolygonUnion(fC) {
         mBB.maxX = mBB[2];
         mBB.minY = mBB[1];
         mBB.maxY = mBB[3];
-        //console.log("testBB", JSON.stringify(testPolygonBB, null, 1));
+        /* eslint-enable prefer-destructuring */
+        // console.log("testBB", JSON.stringify(testPolygonBB, null, 1));
 
         function BBIntersect(tBB, mBB) {
-            if (tBB.maxX < mBB.minX) return false; // tBB is left of mBB
-            if (tBB.minX > mBB.maxX) return false; // tBB is right of mBB
-            if (tBB.maxY < mBB.minY) return false; // tBB is above mBB
-            if (tBB.minY > mBB.maxY) return false; // tBB is below mBB
-            return true; // tBB overlap mBB
+          if (tBB.maxX < mBB.minX) return false; // tBB is left of mBB
+          if (tBB.minX > mBB.maxX) return false; // tBB is right of mBB
+          if (tBB.maxY < mBB.minY) return false; // tBB is above mBB
+          if (tBB.minY > mBB.maxY) return false; // tBB is below mBB
+          return true; // tBB overlap mBB
         }
-        if (BBIntersect(tBB, mBB)) {
 
-          // test for intersection
-          var tsStart = Date.now();
+        if (BBIntersect(tBB, mBB)) {
+          // Test for intersection
+          const tsStart = Date.now();
+          let intersect;
+
           try {
-            var intersect = turf.intersect(testPolygon, mapPolygon);
-            //console.log("intersect", JSON.stringify(intersect,null, 1))
-          } catch(e) {
+            intersect = turf.intersect(testPolygon, mapPolygon);
+            // console.log("intersect", JSON.stringify(intersect,null, 1))
+          } catch (e) {
             console.error('Error in turf.intersect: ' + e + ', polygon: ' + testPolygon.properties.map_park_n);
             return;
           }
-          var tsEnd = Date.now();
+          const tsEnd = Date.now();
           timerIntersect += tsEnd - tsStart;
 
           // if intersection, save the map polygon
-          if (intersect) {
+          if (intersect !== undefined) {
             intersects.push(mapPolygon);
           }
         }
@@ -434,28 +437,27 @@ function fCPolygonUnion(fC) {
       testPolygon.properties.mergeCount = 1;
       polygonMap[testPolygon.properties.id] = testPolygon;
     }
+  });
 
-  })
-
-  // function to merge in
+  // Function to merge in
   function mergeMap(testPolygon, intersects) {
     // console.log("  Creating union polygon of ", intersects.length, " polygons (total polygons: ", Object.keys(polygonMap).length + ")");
 
-    // object to mutate through the recursion (set initially to the polygon under test)
+    // Object to mutate through the recursion (set initially to the polygon under test)
     let enteringPolygon = JSON.parse(JSON.stringify(testPolygon));
     enteringPolygon.properties.mergeCount = 0;
 
-    // copy of the intersection array
+    // Copy of the intersection array
     const polygons = intersects.slice();
 
-    // function to recursivly merge an array of polygons
+    // Function to recursivly merge an array of polygons
     function merge() {
       mergeCount++;
 
-      // pluck first item off the polygon array
+      // Pluck first item off the polygon array
       const mapPolygon = polygons.shift();
 
-      // perform union of the entering polygon and this map polygon
+      // Perform union of the entering polygon and this map polygon
       const tsStart = Date.now();
       let unionPolygon;
       try {
