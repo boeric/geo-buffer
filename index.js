@@ -48,6 +48,53 @@ async function getGeojson(geojson, callback) {
   }
 }
 
+// Take a multiPolygon feature and return an array of polygon features
+function multiToArray(m) {
+  const polygons = [];
+
+  if (m.geometry.type.toLowerCase() !== 'multipolygon') {
+    throw new Error('TypeError', 'Expected MultiPolygon');
+  }
+
+  // create polygons
+  m.geometry.coordinates.forEach((linearRing) => {
+    const id = Sha1.hash(JSON.stringify(linearRing));
+    const polygon = turf.polygon(linearRing, { id });
+    polygons.push(polygon);
+  });
+
+  return polygons;
+}
+
+// Flatten a feature collection consisting of polygons and multi polygons
+function toPolygonArray(fC) {
+  let arr = [];
+
+  fC.features.forEach((feature) => {
+    const type = feature.geometry.type.toLowerCase();
+    let linearRing;
+    let id;
+    let name;
+    let polygon;
+
+    switch (type) {
+      case 'polygon':
+        linearRing = feature.geometry.coordinates;
+        id = Sha1.hash(JSON.stringify(linearRing));
+        name = feature.properties.map_park_n;
+        polygon = turf.polygon(linearRing, { id, map_park_n: name });
+        arr.push(polygon);
+        break;
+      case 'multipolygon':
+        arr = arr.concat(multiToArray(feature));
+        break;
+      default:
+        console.error(`Invalid geometry type: ${type}`);
+    }
+  });
+  return arr;
+}
+
 function init() {
   let doMerge = false;
   console.log('init', layers);
@@ -214,78 +261,30 @@ function init() {
 
 
 function buffer(fC, r) {
+  const polygons = toPolygonArray(fC);
+  let bufferedPolygons = [];
 
-  var polygons = toPolygonArray(fC);
-  var bufferedPolygons = [];
-
-  polygons.forEach(function(polygon) {
+  polygons.forEach((polygon) => {
     try {
-      var fCTemp = turf.buffer(polygon, r, 'meters');
-      var bufferedPolygon = fCTemp.features[0];
-      var linearRing = bufferedPolygon.geometry.coordinates;
-      var id = Sha1.hash(JSON.stringify(linearRing));
-      var name = polygon.properties['map_park_n'];
-      var polygon = turf.polygon(linearRing, { id: id, map_park_n: name });
-      bufferedPolygons.push(polygon)
-    } catch(e) {
-      console.error('Error: ' + e)
+      const fCTemp = turf.buffer(polygon, r, 'meters');
+      const bufferedPolygon = fCTemp.features[0];
+      const linearRing = bufferedPolygon.geometry.coordinates;
+      const id = Sha1.hash(JSON.stringify(linearRing));
+      const name = polygon.properties.map_park_n;
+      const newPolygon = turf.polygon(linearRing, { id, map_park_n: name });
+      bufferedPolygons.push(newPolygon);
+    } catch (e) {
+      console.error(`Error: '${e}`);
     }
-  })
+  });
 
-  d3.select('#inputPolygons').text('Input polygons: ' + bufferedPolygons.length)
-  d3.select('#outputPolygons').text('Output polygons: ' + bufferedPolygons.length)
+  d3.select('#inputPolygons').text(`Input polygons: ${bufferedPolygons.length}`);
+  d3.select('#outputPolygons').text(`Output polygons: ${bufferedPolygons.length}`);
 
   bufferedPolygons = turf.featurecollection(bufferedPolygons);
   console.log('bufferedPolygons', bufferedPolygons);
 
   return bufferedPolygons;
-}
-
-// Take a multiPolygon feature and return an array of polygon features
-function multiToArray(m) {
-  const polygons = [];
-
-  if (m.geometry.type.toLowerCase() != 'multipolygon') {
-    throw new Error('TypeError', 'Expected MultiPolygon');
-  }
-
-  // create polygons
-  m.geometry.coordinates.forEach((linearRing) => {
-    const id = Sha1.hash(JSON.stringify(linearRing));
-    const polygon = turf.polygon(linearRing, { id });
-    polygons.push(polygon);
-  });
-
-  return polygons;
-}
-
-// Flatten a feature collection consisting of polygons and multi polygons
-function toPolygonArray(fC) {
-  let arr = [];
-
-  fC.features.forEach((feature) => {
-    const type = feature.geometry.type.toLowerCase();
-    let linearRing;
-    let id;
-    let name;
-    let polygon;
-
-    switch (type) {
-      case 'polygon':
-        linearRing = feature.geometry.coordinates;
-        id = Sha1.hash(JSON.stringify(linearRing));
-        name = feature.properties.map_park_n;
-        polygon = turf.polygon(linearRing, { id: id, map_park_n: name });
-        arr.push(polygon);
-        break;
-      case 'multipolygon':
-        arr = arr.concat(multiToArray(feature));
-        break;
-      default:
-        console.error(`Invalid geometry type: ${type}`);
-    }
-  });
-  return arr;
 }
 
 /**
