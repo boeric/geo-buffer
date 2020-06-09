@@ -20,6 +20,9 @@ const featureTypes = ['multipolygon', 'polygon'];
 
 // Functions
 
+/**
+ * Fetch geo data from the server
+ */
 async function getGeojson(geojson, callback) {
   try {
     fetch(geojson)
@@ -33,7 +36,9 @@ async function getGeojson(geojson, callback) {
   }
 }
 
-// Take a multiPolygon feature and return an array of polygon features
+/**
+ * Take a multi-polygon feature and return an array of polygon features
+ */
 function multiToArray(m) {
   const polygons = [];
 
@@ -41,7 +46,7 @@ function multiToArray(m) {
     throw new Error('TypeError', 'Expected MultiPolygon');
   }
 
-  // create polygons
+  // Create polygons
   m.geometry.coordinates.forEach((linearRing) => {
     const id = Sha1.hash(JSON.stringify(linearRing));
     const polygon = turf.polygon(linearRing, { id });
@@ -51,9 +56,11 @@ function multiToArray(m) {
   return polygons;
 }
 
-// Flatten a feature collection consisting of polygons and multi polygons
+/**
+ * Flatten a feature collection consisting of polygons and multi-polygons
+ */
 function toPolygonArray(fC) {
-  let arr = [];
+  let array = [];
 
   fC.features.forEach((feature) => {
     const type = feature.geometry.type.toLowerCase();
@@ -64,52 +71,84 @@ function toPolygonArray(fC) {
 
     switch (type) {
       case 'polygon':
+        // Extract a linear ring from the polygon
         linearRing = feature.geometry.coordinates;
+
+        // Create unique id
         id = Sha1.hash(JSON.stringify(linearRing));
+
+        // Extract the name
         name = feature.properties.map_park_n;
+
+        // Create new polygon from the linear ring, id and name
         polygon = turf.polygon(linearRing, { id, map_park_n: name });
-        arr.push(polygon);
+
+        // Add the polygon
+        array.push(polygon);
         break;
       case 'multipolygon':
-        arr = arr.concat(multiToArray(feature));
+        array = array.concat(multiToArray(feature));
         break;
       default:
         console.error(`Invalid geometry type: ${type}`);
     }
   });
-  return arr;
+
+  return array;
 }
 
-function buffer(fC, r) {
+/**
+ *  Creates buffered polygons from the input feature collection, using the supplied radius
+ */
+// eslint-disable-next-line no-shadow
+function buffer(fC, radius) {
   const polygons = toPolygonArray(fC);
   let bufferedPolygons = [];
 
   polygons.forEach((polygon) => {
+    let linearRing;
+    let newPolygon;
+
     try {
-      const fCTemp = turf.buffer(polygon, r, 'meters');
-      const bufferedPolygon = fCTemp.features[0];
-      const linearRing = bufferedPolygon.geometry.coordinates;
+      // Create buffered polygon
+      // let bufferedPolygon = turf.buffer(polygon, radius, { units: 'meters' }); // turf v.5
+      let bufferedPolygon = turf.buffer(polygon, radius, 'meters');
+
+      // Clean up the buffered polygon
+      bufferedPolygon = turf.rewind(bufferedPolygon);
+      bufferedPolygon = turf.cleanCoords(bufferedPolygon);
+
+      // Extract a linear ring from the buffered polygon
+      linearRing = bufferedPolygon.geometry.coordinates;
+
+      // Create unique id
       const id = Sha1.hash(JSON.stringify(linearRing));
+
+      // Extract the name
       const name = polygon.properties.map_park_n;
-      const newPolygon = turf.polygon(linearRing, { id, map_park_n: name });
+
+      // Create new polygon from the linear ring, id and name
+      newPolygon = turf.polygon(linearRing, { id, map_park_n: name });
+
+      // Add the new polygon
       bufferedPolygons.push(newPolygon);
     } catch (e) {
-      console.error(`Error: '${e}`);
+      console.error(`${e}`);
     }
   });
 
   d3.select('#inputPolygons').text(`Input polygons: ${bufferedPolygons.length}`);
   d3.select('#outputPolygons').text(`Output polygons: ${bufferedPolygons.length}`);
 
-  bufferedPolygons = turf.featurecollection(bufferedPolygons);
-  console.log('Buffered polygons', bufferedPolygons);
+  bufferedPolygons = turf.featureCollection(bufferedPolygons);
+  // console.log('Buffered polygons', bufferedPolygons);
 
   return bufferedPolygons;
 }
 
 /**
- *  Function to reduce the polygon count of a GeoJSON FeatureCollection (fC),
- *  by merging overlapping polygons, using turf.intersect and turf.union
+ *  Function to reduce the polygon count of a geojson feature collection (fC),
+ *  by recursively merging overlapping polygons, using turf.intersect and turf.union
  */
 function fCPolygonUnion(fC) {
   /*
@@ -137,7 +176,9 @@ function fCPolygonUnion(fC) {
   // Create map to hold unioned polygons
   const polygonMap = {};
 
-  // Function to merge in TBD
+  /**
+   *  Merges
+   */
   function mergeMap(testPolygon, intersects) {
     /*
     const str0 = `Creating union polygon of ${intersects.length} polygons`;
@@ -209,6 +250,18 @@ function fCPolygonUnion(fC) {
     polygonMap[enteringPolygon.properties.id] = enteringPolygon;
   }
 
+  /**
+   *  Determine if the test polygon intersects with the map polygon
+   */
+  // eslint-disable-next-line1 no-shadow
+  function BBIntersect(tBB, mBB) {
+    if (tBB.maxX < mBB.minX) return false; // tBB is left of mBB
+    if (tBB.minX > mBB.maxX) return false; // tBB is right of mBB
+    if (tBB.maxY < mBB.minY) return false; // tBB is above mBB
+    if (tBB.minY > mBB.maxY) return false; // tBB is below mBB
+    return true; // tBB overlap mBB
+  }
+
   timerIntersect = 0;
   timerUnion = 0;
   // let timerMerge = 0;
@@ -246,7 +299,7 @@ function fCPolygonUnion(fC) {
       const intersects = [];
 
       // Loop through each map polygon
-      mapItems.forEach((mapItem) => {
+      mapItems.forEach((mapItem, i) => {
         // Get the map polygon
         const mapPolygon = polygonMap[mapItem];
 
@@ -267,15 +320,6 @@ function fCPolygonUnion(fC) {
         /* eslint-enable prefer-destructuring */
         // console.log("testBB", JSON.stringify(testPolygonBB, null, 1));
 
-        // eslint-disable-next-line no-shadow
-        function BBIntersect(tBB, mBB) {
-          if (tBB.maxX < mBB.minX) return false; // tBB is left of mBB
-          if (tBB.minX > mBB.maxX) return false; // tBB is right of mBB
-          if (tBB.maxY < mBB.minY) return false; // tBB is above mBB
-          if (tBB.minY > mBB.maxY) return false; // tBB is below mBB
-          return true; // tBB overlap mBB
-        }
-
         if (BBIntersect(tBB, mBB)) {
           // Test for intersection
           const tsStart = Date.now();
@@ -285,13 +329,13 @@ function fCPolygonUnion(fC) {
             intersect = turf.intersect(testPolygon, mapPolygon);
             // console.log("Intersect", JSON.stringify(intersect,null, 1))
           } catch (e) {
-            console.error(`Error in turf.intersect: ${e}, polygon: ${testPolygon.properties.map_park_n}`);
+            console.error(`Error in turf.intersect: ${e}, polygon: ${testPolygon.properties.map_park_n}, ${i}`);
             return;
           }
           const tsEnd = Date.now();
           timerIntersect += tsEnd - tsStart;
 
-          // If intersection, save the map polygon
+          // If test polygon intersects with this map polygon, add the map polygon to the intersects array
           if (intersect !== undefined) {
             intersects.push(mapPolygon);
           }
@@ -311,7 +355,7 @@ function fCPolygonUnion(fC) {
         mergeMap(testPolygon, intersects);
       }
     } else {
-      // Map empty, initialize it
+      // Map is empty, initialize it
       // eslint-disable-next-line no-param-reassign
       testPolygon.properties.mergeCount = 1;
       polygonMap[testPolygon.properties.id] = testPolygon;
@@ -330,7 +374,7 @@ function fCPolygonUnion(fC) {
   console.log(`Intersect test time: ${timerIntersect}`);
   console.log(`Union processing time: ${timerUnion}`);
 
-  const fCFinal = turf.featurecollection(finalPolygons);
+  const fCFinal = turf.featureCollection(finalPolygons);
   return fCFinal;
 }
 
@@ -342,7 +386,7 @@ function init() {
   console.log('Init layers', layers);
 
   layers[0] = toPolygonArray(layers[0]);
-  layers[0] = turf.featurecollection(layers[0]);
+  layers[0] = turf.featureCollection(layers[0]);
   console.log('Init main layer: ', layers[0]);
 
   mapboxgl.accessToken = 'pk.eyJ1IjoiYm9lcmljIiwiYSI6IkZEU3BSTjQifQ.XDXwKy2vBdzFEjndnE4N7Q';
@@ -416,10 +460,12 @@ function init() {
 
   // eslint-disable-next-line no-shadow
   function setRadius(radius) {
+    console.clear();
     const startTime = Date.now();
 
     enableUI(false);
     const buffered = buffer(layers[0], radius, 'meters');
+    console.log('****', buffered)
     enableUI(true);
 
     const buffTime = Date.now();
@@ -504,6 +550,18 @@ function init() {
 // Entry point
 getGeojson(resource, (data) => {
   // Polyfill for missing turf method
+  /*
+  console.log(Object.keys(turf));
+  Object.keys(turf).forEach(d => {
+    console.log(d)
+  })
+  */
+
+  // Log versions of dependencies
+  console.log('d3 version', d3.version);
+  console.log('mapboxgl version', mapboxgl.version);
+  console.log('turf version', turf.version);
+
   if (turf.bbox === undefined) {
     turf.bbox = (polygon) => {
       // Get the feature type and verify that it is acceptable
